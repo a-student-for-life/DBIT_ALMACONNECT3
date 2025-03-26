@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -32,12 +33,14 @@ fun StudentJobPortalScreen(email: String, navController: NavController) {
     var selectedJob by remember { mutableStateOf<JobPostingResponse?>(null) }
     var resumeFile by remember { mutableStateOf<File?>(null) }
 
+    // Use LocalContext.current for a proper Context
+    val context = LocalContext.current
+
     // Launch file picker for PDFs
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            val context = navController.context
             resumeFile = getFileFromUri(context, uri)
         }
     }
@@ -89,7 +92,7 @@ fun StudentJobPortalScreen(email: String, navController: NavController) {
                             showApplyDialog = false
                             resumeFile = null
                             Toast.makeText(
-                                navController.context,
+                                context,
                                 "Application submitted successfully!",
                                 Toast.LENGTH_SHORT
                             ).show()
@@ -112,7 +115,6 @@ fun StudentJobPortalScreen(email: String, navController: NavController) {
 }
 
 fun getFileFromUri(context: Context, uri: Uri): File? {
-    // Retrieve the original file name from the content resolver
     var fileName = "resume.pdf"
     context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
         val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
@@ -120,7 +122,6 @@ fun getFileFromUri(context: Context, uri: Uri): File? {
             fileName = cursor.getString(nameIndex)
         }
     }
-    // Create a temporary file with the retrieved file name
     val tempFile = File(context.cacheDir, fileName)
     context.contentResolver.openInputStream(uri)?.use { inputStream ->
         FileOutputStream(tempFile).use { output ->

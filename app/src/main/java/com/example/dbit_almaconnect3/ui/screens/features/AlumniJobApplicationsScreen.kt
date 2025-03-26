@@ -20,9 +20,12 @@ import com.example.dbit_almaconnect3.viewmodel.JobPortalViewModel
 import androidx.core.net.toUri
 
 @Composable
-fun AlumniJobApplicationsScreen(jobTitle: String, navController: NavController) {
+fun AlumniJobApplicationsScreen(encodedJobTitle: String, navController: NavController) {
+    // Decode the job title so it's user friendly
+    val jobTitle = Uri.decode(encodedJobTitle)
     val viewModel: JobPortalViewModel = viewModel()
     val applications by viewModel.applications.collectAsState()
+    val context = LocalContext.current
 
     // Fetch applications for the given job title
     LaunchedEffect(jobTitle) {
@@ -45,9 +48,6 @@ fun AlumniJobApplicationsScreen(jobTitle: String, navController: NavController) 
     }
 }
 
-
-
-
 @Composable
 fun ApplicationCard(application: ApplicationResponse) {
     val context = LocalContext.current
@@ -67,13 +67,18 @@ fun ApplicationCard(application: ApplicationResponse) {
                 text = "View Resume",
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.clickable {
-                    // Retrieve the complete resume URL from the list
-                    val resumeUrl = application.resume?.firstOrNull()
-                    if (resumeUrl.isNullOrBlank()) {
+                    val resumeName = application.resume?.firstOrNull()
+                    if (resumeName.isNullOrBlank()) {
                         Toast.makeText(context, "No resume available", Toast.LENGTH_SHORT).show()
                     } else {
-                        // Here, we assume that resumeUrl is a complete URL.
-                        val resumeUri = resumeUrl.toUri()
+                        // If the stored resume value is only a file name, reconstruct the full URL.
+                        // In PocketBase, the file URL is typically:
+                        // {baseUrl}/api/files/{collectionId}/{recordId}/{fileName}
+                        val baseUrl = "http://129.154.249.30:8091" // Replace with your actual PocketBase URL if different.
+                        val collectionId = "pbc_2689671926" // Replace with your actual collection id.
+                        // Use the application record's id as the folder (recordId)
+                        val fullUrl = "$baseUrl/api/files/$collectionId/${application.id}/$resumeName"
+                        val resumeUri = fullUrl.toUri()
                         val intent = Intent(Intent.ACTION_VIEW).apply {
                             setDataAndType(resumeUri, "application/pdf")
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -87,12 +92,10 @@ fun ApplicationCard(application: ApplicationResponse) {
                 }
             )
             Spacer(modifier = Modifier.height(8.dp))
-            // Delete Application button
             Button(
                 onClick = {
                     viewModel.deleteApplication(application.id) {
                         Toast.makeText(context, "Application deleted", Toast.LENGTH_SHORT).show()
-                        // Optionally, refresh the application list here
                     }
                 }
             ) {

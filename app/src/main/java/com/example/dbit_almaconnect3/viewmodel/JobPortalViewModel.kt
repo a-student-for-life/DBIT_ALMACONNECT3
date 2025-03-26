@@ -16,7 +16,6 @@ class JobPortalViewModel : ViewModel() {
     private val _jobs = MutableStateFlow<List<JobPostingResponse>>(emptyList())
     val jobs: StateFlow<List<JobPostingResponse>> = _jobs
 
-    // New: State for job applications
     private val _applications = MutableStateFlow<List<ApplicationResponse>>(emptyList())
     val applications: StateFlow<List<ApplicationResponse>> = _applications
 
@@ -34,13 +33,12 @@ class JobPortalViewModel : ViewModel() {
         viewModelScope.launch {
             val result = repository.postJob(title, description, postedBy)
             if (result != null) {
-                fetchJobs() // Refresh job list after posting
+                fetchJobs()
                 onSuccess()
             }
         }
     }
 
-    // Updated: applyForJob now uses the resume file and passes applicant info correctly
     fun applyForJob(jobId: String, applicant: String, resumeFile: File, onSuccess: () -> Unit) {
         viewModelScope.launch {
             val result = repository.applyForJob(jobId, applicant, resumeFile)
@@ -51,7 +49,7 @@ class JobPortalViewModel : ViewModel() {
         }
     }
 
-    // New: Fetch all applications for a given job posting
+    // Now accepts a job title for filtering applications
     fun fetchApplicationsForJob(jobTitle: String) {
         viewModelScope.launch {
             val apps = repository.getApplicationsForJob(jobTitle)
@@ -59,15 +57,11 @@ class JobPortalViewModel : ViewModel() {
         }
     }
 
-
-    /**
-     * Delete both the job record and Flarum discussion.
-     */
     fun deleteJob(jobId: String, discussionLink: String?, onSuccess: () -> Unit) {
         viewModelScope.launch {
             val isDeleted = repository.deleteJobAndDiscussion(jobId, discussionLink)
             if (isDeleted) {
-                fetchJobs() // Refresh after deleting
+                fetchJobs()
                 onSuccess()
             }
         }
@@ -78,12 +72,7 @@ class JobPortalViewModel : ViewModel() {
             val success = repository.deleteApplication(applicationId)
             if (success) {
                 onSuccess()
-                // Optionally refresh the applications list
-                // fetchApplicationsForJob(<jobTitle or other filter>)
-            } else {
-                // Handle error (e.g., show a toast)
             }
         }
     }
-
 }

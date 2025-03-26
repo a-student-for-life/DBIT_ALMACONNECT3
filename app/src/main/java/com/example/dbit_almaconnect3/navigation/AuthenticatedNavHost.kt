@@ -125,7 +125,7 @@ fun AuthenticatedNavHost(
                     }
                     composable("jobApplications/{jobTitle}") { backStackEntry ->
                         val jobTitle = backStackEntry.arguments?.getString("jobTitle") ?: ""
-                        AlumniJobApplicationsScreen(jobTitle = jobTitle, navController = innerNavController)
+                        AlumniJobApplicationsScreen(encodedJobTitle = jobTitle, navController = innerNavController)
                     }
 
                 }
