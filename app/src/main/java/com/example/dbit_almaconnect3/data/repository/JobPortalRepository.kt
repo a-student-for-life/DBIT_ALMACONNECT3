@@ -16,14 +16,19 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.io.File
-import com.example.dbit_almaconnect3.data.api.RetrofitClient
 
 class JobPortalRepository {
 
-    // Use the RetrofitClient instance with the custom Gson configuration.
-    private val service = RetrofitClient.instance.create(JobPortalService::class.java)
+    // PocketBase
+    private val baseUrl = "http://129.154.249.30:8091/" // Your PocketBase instance URL
+    private val retrofit = Retrofit.Builder()
+        .baseUrl(baseUrl)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
 
-    // Flarum details
+    private val service = retrofit.create(JobPortalService::class.java)
+
+    // Flarum
     private val flarumUrl = "http://129.154.249.30:8080"
     private val flarumApiKey = "9bf5f86b94d5873bf57808689182723dc93c6fdc"
 
@@ -60,12 +65,15 @@ class JobPortalRepository {
         }
     }
 
+    // Updated: Apply for job using file upload and additional fields (appliedAt, status)
     suspend fun applyForJob(jobId: String, applicant: String, resumeFile: File): ApplicationResponse? = withContext(Dispatchers.IO) {
+        // Prepare parts for multipart request
         val jobRequest = jobId.toRequestBody("text/plain".toMediaTypeOrNull())
-        val appliedByRequest = applicant.toRequestBody("text/plain".toMediaTypeOrNull())
+        val appliedByRequest = applicant.toRequestBody("text/plain".toMediaTypeOrNull()) // changed field name from "applicant" to "appliedBy"
         val appliedAt = getCurrentTimestamp().toRequestBody("text/plain".toMediaTypeOrNull())
         val status = "pending".toRequestBody("text/plain".toMediaTypeOrNull())
 
+        // Prepare the resume file part (assuming a PDF; adjust MIME type if needed)
         val fileRequestBody = resumeFile.asRequestBody("application/pdf".toMediaTypeOrNull())
         val resumePart = MultipartBody.Part.createFormData("resume", resumeFile.name, fileRequestBody)
 
@@ -73,14 +81,18 @@ class JobPortalRepository {
         return@withContext if (response.isSuccessful) {
             val appResponse = response.body()
             appResponse?.let { application ->
+                // Check if the resume field (assumed to be a list of strings) contains a complete URL.
                 val resumeList = application.resume
                 if (resumeList != null && resumeList.isNotEmpty()) {
                     val firstResume = resumeList.first()
                     if (!firstResume.startsWith("http", ignoreCase = true)) {
+                        // If it doesn't start with http, reconstruct the full URL.
+                        // You'll need to know the folder ID for this file. For example:
                         val collectionId = "pbc_2689671926"
-                        val folderId = "YOUR_FOLDER_ID" // Replace with actual folder ID
+                        val folderId = "YOUR_FOLDER_ID" // Replace with the actual folder ID that was generated for this file.
                         val baseUrl = "http://129.154.249.30:8091"
                         val fullUrl = "$baseUrl/api/files/$collectionId/$folderId/$firstResume"
+                        // Return a copy of the application with the resume field replaced by the full URL.
                         return@withContext application.copy(resume = listOf(fullUrl))
                     }
                 }
@@ -92,8 +104,10 @@ class JobPortalRepository {
         }
     }
 
-    // Filter applications using the job title
+
+    // New: Fetch all applications for a specific job
     suspend fun getApplicationsForJob(jobTitle: String): List<ApplicationResponse>? = withContext(Dispatchers.IO) {
+        // Build the filter using the nested job title
         val filter = "job.title='$jobTitle'"
         val response = service.getApplicationsForJob(filter)
         return@withContext if (response.isSuccessful) {
@@ -109,13 +123,19 @@ class JobPortalRepository {
         response.isSuccessful
     }
 
+
+    /**
+     * Delete both the Flarum discussion (if any) and the job record in PocketBase
+     */
     suspend fun deleteJobAndDiscussion(jobId: String, discussionLink: String?): Boolean = withContext(Dispatchers.IO) {
+        // 1) If there's a discussionLink, parse the discussion ID and delete from Flarum
         discussionLink?.let { link ->
             val regex = Regex("/d/(\\d+)")
             val match = regex.find(link)
             val discussionId = match?.groupValues?.getOrNull(1)
 
             if (!discussionId.isNullOrEmpty()) {
+                // DELETE from Flarum
                 val deleteRequest = Request.Builder()
                     .url("$flarumUrl/api/discussions/$discussionId")
                     .delete()
@@ -131,10 +151,12 @@ class JobPortalRepository {
             }
         }
 
+        // 2) Delete the job from PocketBase
         val response = service.deleteJob(jobId)
         response.isSuccessful
     }
 
+    // Helper function to get current datetime in ISO 8601 format
     private fun getCurrentTimestamp(): String {
         return ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
     }
