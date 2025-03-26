@@ -41,14 +41,19 @@ android {
 
 dependencies {
 
+    implementation("androidx.compose.material:material-icons-extended:1.4.0")
+    implementation("androidx.compose.material3:material3:1.1.0-beta01")
+
+
+    implementation("androidx.compose.ui:ui:<version>")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:<version>")
     implementation("com.squareup.okhttp3:okhttp:4.xx.x")
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("androidx.compose.foundation:foundation:1.5.0") // or the version you're using
 
     // Jetpack Compose
-    implementation("androidx.compose.material3:material3:<version>")
     implementation("androidx.compose.ui:ui:1.5.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     // Retrofit (for API calls)
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")

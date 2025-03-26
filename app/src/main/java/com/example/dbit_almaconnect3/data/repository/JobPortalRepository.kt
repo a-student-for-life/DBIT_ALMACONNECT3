@@ -10,25 +10,21 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.MultipartBody
+import org.json.JSONArray
 import org.json.JSONObject
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.io.File
+import com.example.dbit_almaconnect3.data.api.RetrofitClient
 
 class JobPortalRepository {
 
-    // PocketBase
-    private val baseUrl = "http://129.154.249.30:8091/" // Your PocketBase instance URL
-    private val retrofit = Retrofit.Builder()
-        .baseUrl(baseUrl)
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
+    // Use the RetrofitClient instance with the custom Gson configuration.
+    private val service = RetrofitClient.instance.create(JobPortalService::class.java)
 
-    private val service = retrofit.create(JobPortalService::class.java)
-
-    // Flarum
+    // Flarum details
     private val flarumUrl = "http://129.154.249.30:8080"
     private val flarumApiKey = "9bf5f86b94d5873bf57808689182723dc93c6fdc"
 
@@ -65,15 +61,12 @@ class JobPortalRepository {
         }
     }
 
-    // Updated: Apply for job using file upload and additional fields (appliedAt, status)
     suspend fun applyForJob(jobId: String, applicant: String, resumeFile: File): ApplicationResponse? = withContext(Dispatchers.IO) {
-        // Prepare parts for multipart request
         val jobRequest = jobId.toRequestBody("text/plain".toMediaTypeOrNull())
-        val appliedByRequest = applicant.toRequestBody("text/plain".toMediaTypeOrNull()) // changed field name from "applicant" to "appliedBy"
+        val appliedByRequest = applicant.toRequestBody("text/plain".toMediaTypeOrNull())
         val appliedAt = getCurrentTimestamp().toRequestBody("text/plain".toMediaTypeOrNull())
         val status = "pending".toRequestBody("text/plain".toMediaTypeOrNull())
 
-        // Prepare the resume file part (assuming a PDF; adjust MIME type if needed)
         val fileRequestBody = resumeFile.asRequestBody("application/pdf".toMediaTypeOrNull())
         val resumePart = MultipartBody.Part.createFormData("resume", resumeFile.name, fileRequestBody)
 
@@ -81,18 +74,14 @@ class JobPortalRepository {
         return@withContext if (response.isSuccessful) {
             val appResponse = response.body()
             appResponse?.let { application ->
-                // Check if the resume field (assumed to be a list of strings) contains a complete URL.
                 val resumeList = application.resume
                 if (resumeList != null && resumeList.isNotEmpty()) {
                     val firstResume = resumeList.first()
                     if (!firstResume.startsWith("http", ignoreCase = true)) {
-                        // If it doesn't start with http, reconstruct the full URL.
-                        // You'll need to know the folder ID for this file. For example:
                         val collectionId = "pbc_2689671926"
-                        val folderId = "YOUR_FOLDER_ID" // Replace with the actual folder ID that was generated for this file.
+                        val folderId = "YOUR_FOLDER_ID" // Replace with actual folder ID
                         val baseUrl = "http://129.154.249.30:8091"
                         val fullUrl = "$baseUrl/api/files/$collectionId/$folderId/$firstResume"
-                        // Return a copy of the application with the resume field replaced by the full URL.
                         return@withContext application.copy(resume = listOf(fullUrl))
                     }
                 }
@@ -104,10 +93,7 @@ class JobPortalRepository {
         }
     }
 
-
-    // New: Fetch all applications for a specific job
     suspend fun getApplicationsForJob(jobTitle: String): List<ApplicationResponse>? = withContext(Dispatchers.IO) {
-        // Build the filter using the nested job title
         val filter = "job.title='$jobTitle'"
         val response = service.getApplicationsForJob(filter)
         return@withContext if (response.isSuccessful) {
@@ -123,25 +109,17 @@ class JobPortalRepository {
         response.isSuccessful
     }
 
-
-    /**
-     * Delete both the Flarum discussion (if any) and the job record in PocketBase
-     */
     suspend fun deleteJobAndDiscussion(jobId: String, discussionLink: String?): Boolean = withContext(Dispatchers.IO) {
-        // 1) If there's a discussionLink, parse the discussion ID and delete from Flarum
         discussionLink?.let { link ->
             val regex = Regex("/d/(\\d+)")
             val match = regex.find(link)
             val discussionId = match?.groupValues?.getOrNull(1)
-
             if (!discussionId.isNullOrEmpty()) {
-                // DELETE from Flarum
                 val deleteRequest = Request.Builder()
                     .url("$flarumUrl/api/discussions/$discussionId")
                     .delete()
                     .header("Authorization", "Token $flarumApiKey")
                     .build()
-
                 val deleteResponse = flarumClient.newCall(deleteRequest).execute()
                 deleteResponse.use { r ->
                     if (!r.isSuccessful) {
@@ -150,18 +128,125 @@ class JobPortalRepository {
                 }
             }
         }
-
-        // 2) Delete the job from PocketBase
         val response = service.deleteJob(jobId)
         response.isSuccessful
     }
 
-    // Helper function to get current datetime in ISO 8601 format
+    // Helper function to get current datetime in ISO 8601 format.
     private fun getCurrentTimestamp(): String {
         return ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
     }
 
+    // Helper to get all tags from Flarum.
+    suspend fun getTags(): List<Tag>? = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("$flarumUrl/api/tags?page[limit]=100")
+            .header("Authorization", "Token $flarumApiKey")
+            .build()
+        val response = flarumClient.newCall(request).execute()
+        if (response.isSuccessful) {
+            val responseBody = response.body?.string() ?: return@withContext null
+            val jsonObj = JSONObject(responseBody)
+            val dataArray = jsonObj.getJSONArray("data")
+            val tags = mutableListOf<Tag>()
+            for (i in 0 until dataArray.length()) {
+                val tagObj = dataArray.getJSONObject(i)
+                val id = tagObj.getString("id")
+                val attributes = tagObj.getJSONObject("attributes")
+                val name = attributes.getString("name")
+                val slug = attributes.optString("slug", "")
+                val color = attributes.optString("color", null)
+                val parentId = tagObj.optJSONObject("relationships")
+                    ?.optJSONObject("parent")
+                    ?.optJSONObject("data")
+                    ?.optString("id")
+                tags.add(Tag(id, name, slug, color, parentId))
+            }
+            tags
+        } else {
+            Log.e("JobPortalRepository", "Failed to get tags: ${response.code}")
+            null
+        }
+    }
+
+    // Helper to get the primary "Job Internship Portal" tag's ID.
+    // Primary tag name is "Job Internship Portal" and slug is "job-internship-portal".
+    private suspend fun getPrimaryJobInternshipPortalTagId(): String? = withContext(Dispatchers.IO) {
+        val tags = getTags()
+        if (tags != null) {
+            for (tag in tags) {
+                if (tag.slug == "job-internship-portal") {
+                    Log.d("JobPortalRepository", "Found primary tag ID: ${tag.id}")
+                    return@withContext tag.id
+                }
+            }
+        }
+        Log.e("JobPortalRepository", "Primary tag 'Job Internship Portal' not found.")
+        null
+    }
+
+    // Helper to create a secondary tag for a particular job.
+    // This tag will have the job's title as its name and will be nested under the primary "Job Internship Portal" tag.
+    private suspend fun createSecondaryTagForJob(jobTitle: String, color: String? = "#add8e6"): Tag? = withContext(Dispatchers.IO) {
+        val parentTagId = getPrimaryJobInternshipPortalTagId()
+        if (parentTagId == null) {
+            Log.e("JobPortalRepository", "Primary tag 'Job Internship Portal' not found.")
+            return@withContext null
+        }
+        val slug = jobTitle.lowercase().trim().replace("\\s+".toRegex(), "-")
+        val payload = JSONObject().apply {
+            put("data", JSONObject().apply {
+                put("type", "tags")
+                put("attributes", JSONObject().apply {
+                    put("name", jobTitle)
+                    put("slug", slug)
+                    put("description", "")
+                    put("color", color?.trim()?.lowercase() ?: "#ffffff")
+                })
+                put("relationships", JSONObject().apply {
+                    put("parent", JSONObject().apply {
+                        put("data", JSONObject().apply {
+                            put("type", "tags")
+                            put("id", parentTagId)
+                        })
+                    })
+                })
+            })
+        }
+        val body = payload.toString().toRequestBody("application/json".toMediaTypeOrNull())
+        val request = Request.Builder()
+            .url("$flarumUrl/api/tags")
+            .post(body)
+            .header("Content-Type", "application/json")
+            .header("Authorization", "Token $flarumApiKey")
+            .build()
+        val response = flarumClient.newCall(request).execute()
+        if (response.isSuccessful) {
+            val responseBody = response.body?.string() ?: return@withContext null
+            val dataObj = JSONObject(responseBody).getJSONObject("data")
+            val id = dataObj.getString("id")
+            val attributes = dataObj.getJSONObject("attributes")
+            val tagName = attributes.getString("name")
+            val tagSlug = attributes.optString("slug", slug)
+            val tagColor = attributes.optString("color", "#ffffff")
+            Tag(id, tagName, tagSlug, tagColor, parentTagId)
+        } else {
+            Log.e("JobPortalRepository", "Failed to create secondary tag: code=${response.code}, body=${response.body?.string()}")
+            null
+        }
+    }
+
+    // Updated discussion creation function.
+    // 1. It creates a secondary tag dedicated to that job using the job title.
+    // 2. It creates the discussion and attaches that secondary tag.
+    // 3. It returns the URL for the secondary tag page, so the user is taken there.
     private suspend fun createFlarumDiscussion(title: String, content: String): String? = withContext(Dispatchers.IO) {
+        // Create a secondary tag for this job.
+        val secondaryTag = createSecondaryTagForJob(title)
+        if (secondaryTag == null) {
+            Log.e("JobPortalRepository", "Failed to create secondary tag for job: $title")
+            return@withContext null
+        }
         val json = JSONObject().apply {
             put("data", JSONObject().apply {
                 put("type", "discussions")
@@ -169,9 +254,19 @@ class JobPortalRepository {
                     put("title", title)
                     put("content", content)
                 })
+                // Attach the secondary tag.
+                put("relationships", JSONObject().apply {
+                    put("tags", JSONObject().apply {
+                        put("data", JSONArray().apply {
+                            put(JSONObject().apply {
+                                put("type", "tags")
+                                put("id", secondaryTag.id)
+                            })
+                        })
+                    })
+                })
             })
         }
-
         val body = json.toString().toRequestBody("application/json".toMediaTypeOrNull())
         val request = Request.Builder()
             .url("$flarumUrl/api/discussions")
@@ -179,15 +274,11 @@ class JobPortalRepository {
             .header("Content-Type", "application/json")
             .header("Authorization", "Token $flarumApiKey")
             .build()
-
         val response = flarumClient.newCall(request).execute()
         response.use { r ->
             if (r.isSuccessful) {
-                val responseBody = r.body?.string() ?: return@use null
-                val dataObj = JSONObject(responseBody).getJSONObject("data")
-                val discussionId = dataObj.getString("id")
-                val slug = dataObj.getJSONObject("attributes").optString("slug")
-                if (slug.isNotEmpty()) "$flarumUrl/d/$discussionId-$slug" else "$flarumUrl/d/$discussionId"
+                // Return the secondary tag's page URL.
+                "$flarumUrl/t/${secondaryTag.slug}"
             } else {
                 Log.e("Flarum", "Discussion creation failed: code=${r.code}, body=${r.body?.string()}")
                 null
