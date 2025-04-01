@@ -19,19 +19,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.dbit_almaconnect3.ui.screens.DiscussionScreen
 import com.example.dbit_almaconnect3.ui.screens.HomeScreenWithDrawer
 import com.example.dbit_almaconnect3.ui.screens.DrawerContent
-import com.example.dbit_almaconnect3.ui.screens.features.AlumniAnnouncementsScreen
-import com.example.dbit_almaconnect3.ui.screens.features.StudentAnnouncementsScreen
-import com.example.dbit_almaconnect3.ui.screens.features.AlumniCompanyInsightsScreen
-import com.example.dbit_almaconnect3.ui.screens.features.StudentCompanyInsightsScreen
-import com.example.dbit_almaconnect3.ui.screens.features.AlumniEventsScreen
-import com.example.dbit_almaconnect3.ui.screens.features.AlumniJobApplicationsScreen
-import com.example.dbit_almaconnect3.ui.screens.features.StudentEventsScreen
-import com.example.dbit_almaconnect3.ui.screens.features.AlumniJobPortalScreen
-import com.example.dbit_almaconnect3.ui.screens.features.StudentJobPortalScreen
-import com.example.dbit_almaconnect3.ui.screens.features.AlumniMentorshipScreen
-import com.example.dbit_almaconnect3.ui.screens.features.StudentMentorshipScreen
-import com.example.dbit_almaconnect3.ui.screens.features.AlumniSuccessStoriesScreen
-import com.example.dbit_almaconnect3.ui.screens.features.StudentSuccessStoriesScreen
+import com.example.dbit_almaconnect3.ui.screens.features.*
 import kotlinx.coroutines.launch
 
 @Composable
@@ -75,45 +63,45 @@ fun AuthenticatedNavHost(
                         }
                     }
                     composable("announcements") {
-                        if (role.lowercase() == "alumni") {
-                            AlumniAnnouncementsScreen(email = email, navController = innerNavController)
-                        } else {
-                            StudentAnnouncementsScreen(email = email, navController = innerNavController)
+                        when (role.lowercase()) {
+                            "alumni" -> AlumniAnnouncementsScreen(email = email, navController = innerNavController)
+                            "collegeadmin" -> CollegeAdminAnnouncementsScreen(email = email, navController = innerNavController)
+                            else -> StudentAnnouncementsScreen(email = email, navController = innerNavController)
                         }
                     }
                     composable("company_insights") {
-                        if (role.lowercase() == "alumni") {
-                            AlumniCompanyInsightsScreen(email = email, navController = innerNavController)
-                        } else {
-                            StudentCompanyInsightsScreen(email = email, navController = innerNavController)
+                        when (role.lowercase()) {
+                            "alumni" -> AlumniCompanyInsightsScreen(email = email, navController = innerNavController)
+                            "collegeadmin" -> CollegeAdminCompanyInsightsScreen(email = email, navController = innerNavController)
+                            else -> StudentCompanyInsightsScreen(email = email, navController = innerNavController)
                         }
                     }
                     composable("jobs") {
-                        if (role.lowercase() == "alumni") {
-                            AlumniJobPortalScreen(email = email, navController = innerNavController)
-                        } else {
-                            StudentJobPortalScreen(email = email, navController = innerNavController)
+                        when (role.lowercase()) {
+                            "alumni" -> AlumniJobPortalScreen(email = email, navController = innerNavController)
+                            "collegeadmin" -> CollegeAdminJobPortalScreen(email = email, navController = innerNavController)
+                            else -> StudentJobPortalScreen(email = email, navController = innerNavController)
                         }
                     }
                     composable("events") {
-                        if (role.lowercase() == "alumni") {
-                            AlumniEventsScreen(email = email, navController = innerNavController)
-                        } else {
-                            StudentEventsScreen(email = email, navController = innerNavController)
+                        when (role.lowercase()) {
+                            "alumni" -> AlumniEventsScreen(email = email, navController = innerNavController)
+                            "collegeadmin" -> CollegeAdminEventsScreen(email = email, navController = innerNavController)
+                            else -> StudentEventsScreen(email = email, navController = innerNavController)
                         }
                     }
                     composable("mentorship") {
-                        if (role.lowercase() == "alumni") {
-                            AlumniMentorshipScreen(email = email, navController = innerNavController)
-                        } else {
-                            StudentMentorshipScreen(email = email, navController = innerNavController)
+                        when (role.lowercase()) {
+                            "alumni" -> AlumniMentorshipScreen(email = email, navController = innerNavController)
+                            "collegeadmin" -> CollegeAdminMentorshipScreen(email = email, navController = innerNavController)
+                            else -> StudentMentorshipScreen(email = email, navController = innerNavController)
                         }
                     }
                     composable("success_stories") {
-                        if (role.lowercase() == "alumni") {
-                            AlumniSuccessStoriesScreen(email = email, navController = innerNavController)
-                        } else {
-                            StudentSuccessStoriesScreen(email = email, navController = innerNavController)
+                        when (role.lowercase()) {
+                            "alumni" -> AlumniSuccessStoriesScreen(email = email, navController = innerNavController)
+                            "collegeadmin" -> CollegeAdminSuccessStoriesScreen(email = email, navController = innerNavController)
+                            else -> StudentSuccessStoriesScreen(email = email, navController = innerNavController)
                         }
                     }
                     composable("discussion/{threadLink}") { backStackEntry ->

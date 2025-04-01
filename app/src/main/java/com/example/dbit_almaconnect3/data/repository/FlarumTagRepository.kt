@@ -110,6 +110,24 @@ class FlarumTagRepository {
             Tag(id, tagName, tagSlug, tagColor, parentTagId)
         } else {
             Log.e("FlarumTagRepository", "Failed to create tag: ${response.code}")
+            
+            // Special handling for 422 errors - these sometimes create the tag anyway
+            if (response.code == 422) {
+                Log.w("FlarumTagRepository", "Received 422 error but checking if tag was created anyway")
+                
+                // Give the server a moment to process
+                kotlinx.coroutines.delay(1000)
+                
+                // Check if the tag was created despite the error
+                val allTags = getTags()
+                val createdTag = allTags?.firstOrNull { it.slug == slug || it.name == name }
+                
+                if (createdTag != null) {
+                    Log.i("FlarumTagRepository", "Tag was created despite 422 error: ${createdTag.name}")
+                    return@withContext createdTag
+                }
+            }
+            
             null
         }
     }

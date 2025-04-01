@@ -5,6 +5,7 @@ import retrofit2.Response
 import retrofit2.http.*
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
+import com.example.dbit_almaconnect3.data.repository.JobUpdateRequest
 
 // Request and Response Data Classes
 
@@ -13,6 +14,8 @@ data class JobPostingRequest(
     val description: String,
     val postedBy: String,
     val postedAt: String,
+    val company: String,
+    val status: Boolean = false,
     val discussionLink: String? = null
 )
 
@@ -22,6 +25,8 @@ data class JobPostingResponse(
     val description: String,
     val postedBy: String,
     val postedAt: String,
+    val company: String,
+    val status: Boolean,
     val discussionLink: String?
 )
 
@@ -51,6 +56,12 @@ data class ApplicationListWrapper(
     val items: List<ApplicationResponse>
 )
 
+// Define a class for application updates
+data class ApplicationUpdateRequest(
+    val status: String? = null,
+    val feedback: String? = null
+)
+
 // Retrofit Service Interface
 
 interface JobPortalService {
@@ -66,7 +77,7 @@ interface JobPortalService {
     suspend fun postJob(@Body request: JobPostingRequest): Response<JobPostingResponse>
 
     @PATCH("api/collections/jobs/records/{id}")
-    suspend fun updateJob(@Path("id") id: String, @Body request: Map<String, Any>): Response<JobPostingResponse>
+    suspend fun updateJob(@Path("id") id: String, @Body request: JobUpdateRequest): Response<JobPostingResponse>
 
     @DELETE("api/collections/jobs/records/{id}")
     suspend fun deleteJob(@Path("id") id: String): Response<Unit>
@@ -92,7 +103,7 @@ interface JobPortalService {
     ): Response<ApplicationResponse>
 
     @PATCH("api/collections/applications/records/{id}")
-    suspend fun updateApplication(@Path("id") id: String, @Body request: Map<String, Any>): Response<ApplicationResponse>
+    suspend fun updateApplication(@Path("id") id: String, @Body request: ApplicationUpdateRequest): Response<ApplicationResponse>
 
     @DELETE("api/collections/applications/records/{id}")
     suspend fun deleteApplication(@Path("id") id: String): Response<Unit>

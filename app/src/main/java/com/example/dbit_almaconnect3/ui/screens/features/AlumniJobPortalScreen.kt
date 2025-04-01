@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.dbit_almaconnect3.data.api.JobPostingResponse
+import com.example.dbit_almaconnect3.utils.DateUtils
 import com.example.dbit_almaconnect3.viewmodel.JobPortalViewModel
 
 @Composable
@@ -23,6 +24,7 @@ fun AlumniJobPortalScreen(email: String, navController: NavController) {
     var showDialog by remember { mutableStateOf(false) }
     var jobTitle by remember { mutableStateOf("") }
     var jobDescription by remember { mutableStateOf("") }
+    var company by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         viewModel.fetchJobs()
@@ -56,22 +58,36 @@ fun AlumniJobPortalScreen(email: String, navController: NavController) {
                     OutlinedTextField(
                         value = jobTitle,
                         onValueChange = { jobTitle = it },
-                        label = { Text("Job Title") }
+                        label = { Text("Job Title") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = company,
+                        onValueChange = { company = it },
+                        label = { Text("Company Name") },
+                        modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = jobDescription,
                         onValueChange = { jobDescription = it },
-                        label = { Text("Job Description") }
+                        label = { Text("Job Description") },
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
-                    viewModel.postJob(jobTitle, jobDescription, email) {
-                        showDialog = false
-                        jobTitle = ""
-                        jobDescription = ""
+                    if (jobTitle.isNotBlank() && company.isNotBlank()) {
+                        viewModel.postJob(jobTitle, jobDescription, company, email) {
+                            showDialog = false
+                            jobTitle = ""
+                            jobDescription = ""
+                            company = ""
+                        }
+                    } else {
+                        // Show error or handle empty fields
                     }
                 }) {
                     Text("Post")
@@ -97,30 +113,57 @@ fun JobPostingCardForAlumni(job: JobPostingResponse, navController: NavControlle
             .border(1.dp, Color.Gray)
             .padding(8.dp)
     ) {
-        Text(text = job.title, fontSize = 20.sp)
+        Text(text = job.title, fontSize = 20.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+        Text(text = "Company: ${job.company}", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
         Text(text = job.description, fontSize = 16.sp)
         Spacer(modifier = Modifier.height(8.dp))
-
-        if (!job.discussionLink.isNullOrEmpty()) {
-            Button(onClick = {
-                val encodedLink = Uri.encode(job.discussionLink)
-                navController.navigate("discussion/$encodedLink")
-            }) {
-                Text("Open Discussion Forum")
-            }
+        
+        // Show verification status
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = if (job.status) "✅ Verified by College" else "⏳ Pending Verification",
+                color = if (job.status) Color.Green else Color.Gray,
+                fontSize = 14.sp
+            )
+            
+            Text(
+                text = "Posted: ${DateUtils.formatDate(job.postedAt)}",
+                fontSize = 14.sp,
+                color = Color.Gray
+            )
         }
-        // Pass job.title (encoded) to the applications screen
-        Button(onClick = {
-            navController.navigate("jobApplications/${Uri.encode(job.title)}")
-        }) {
-            Text("View Applications")
-        }
-        Button(onClick = {
-            viewModel.deleteJob(job.id, job.discussionLink) {
-                // Optionally show a toast or do something on success
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            TextButton(
+                onClick = {
+                    // Navigate to see applications for this job
+                    val encodedTitle = Uri.encode(job.title)
+                    navController.navigate("jobApplications/$encodedTitle")
+                }
+            ) {
+                Text("View Applications")
             }
-        }) {
-            Text("Delete Job")
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            TextButton(
+                onClick = {
+                    // Delete this job
+                    viewModel.deleteJob(job.id, job.discussionLink) {
+                        // Refresh happens in the ViewModel
+                    }
+                }
+            ) {
+                Text("Delete", color = Color.Red)
+            }
         }
     }
 }

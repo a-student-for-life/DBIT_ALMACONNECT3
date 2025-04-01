@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.dbit_almaconnect3.data.api.JobPostingResponse
+import com.example.dbit_almaconnect3.utils.DateUtils
 import com.example.dbit_almaconnect3.viewmodel.JobPortalViewModel
 import java.io.File
 import java.io.FileOutputStream
@@ -132,33 +134,69 @@ fun getFileFromUri(context: Context, uri: Uri): File? {
 }
 
 @Composable
-fun JobPostingCardForStudent(
-    job: JobPostingResponse,
-    navController: NavController,
-    onApplyClick: () -> Unit
-) {
+fun JobPostingCardForStudent(job: JobPostingResponse, navController: NavController, onApply: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp)
             .border(1.dp, Color.Gray)
             .padding(8.dp)
     ) {
-        Text(text = job.title, fontSize = 20.sp)
-        Text(text = job.description, fontSize = 16.sp)
-        Spacer(modifier = Modifier.height(8.dp))
-
-        if (!job.discussionLink.isNullOrEmpty()) {
-            Button(onClick = {
-                val encodedLink = Uri.encode(job.discussionLink)
-                navController.navigate("discussion/$encodedLink")
-            }) {
-                Text("Open Discussion Forum")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
+            Text(
+                text = job.title, 
+                fontSize = 20.sp, 
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+            )
+            
+            if (job.status) {
+                androidx.compose.material3.Card(
+                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                        containerColor = Color(0xFF4CAF50)
+                    ),
+                    modifier = Modifier.padding(4.dp)
+                ) {
+                    Text(
+                        text = "✓ Verified",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
             }
         }
-
-        Button(onClick = onApplyClick) {
-            Text("Apply")
+        
+        Text(
+            text = "Company: ${job.company}",
+            fontSize = 16.sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+        )
+        
+        Spacer(modifier = Modifier.height(4.dp))
+        
+        Text(
+            text = job.description,
+            fontSize = 16.sp
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = "Posted: ${DateUtils.formatDate(job.postedAt)}",
+            fontSize = 14.sp,
+            color = Color.Gray
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Button(
+            onClick = onApply,
+            modifier = Modifier.align(Alignment.End)
+        ) {
+            Text("Apply Now")
         }
     }
 }

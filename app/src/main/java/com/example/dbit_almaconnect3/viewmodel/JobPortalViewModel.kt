@@ -29,9 +29,9 @@ class JobPortalViewModel : ViewModel() {
         }
     }
 
-    fun postJob(title: String, description: String, postedBy: String, onSuccess: () -> Unit) {
+    fun postJob(title: String, description: String, company: String, postedBy: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
-            val result = repository.postJob(title, description, postedBy)
+            val result = repository.postJob(title, description, company, postedBy)
             if (result != null) {
                 fetchJobs()
                 onSuccess()
@@ -71,6 +71,17 @@ class JobPortalViewModel : ViewModel() {
         viewModelScope.launch {
             val success = repository.deleteApplication(applicationId)
             if (success) {
+                onSuccess()
+            }
+        }
+    }
+
+    fun updateJobStatus(jobId: String, status: Boolean, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            val updateMap = mapOf("status" to status)
+            val result = repository.updateJob(jobId, updateMap)
+            if (result != null) {
+                fetchJobs()
                 onSuccess()
             }
         }

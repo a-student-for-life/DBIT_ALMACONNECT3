@@ -18,7 +18,7 @@
     </queries>
 
     <application
-
+        android:name=".AlmaConnectApp"
         android:enableOnBackInvokedCallback="true"
         android:hardwareAccelerated="true"
         android:allowBackup="true"

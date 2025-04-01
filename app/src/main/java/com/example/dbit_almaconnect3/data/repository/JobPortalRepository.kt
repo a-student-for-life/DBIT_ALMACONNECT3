@@ -19,6 +19,14 @@ import java.time.format.DateTimeFormatter
 import java.io.File
 import com.example.dbit_almaconnect3.data.api.RetrofitClient
 
+// Define a data class to use for job updates
+data class JobUpdateRequest(
+    val status: Boolean? = null,
+    val title: String? = null,
+    val description: String? = null,
+    val company: String? = null
+)
+
 class JobPortalRepository {
 
     // Use the RetrofitClient instance with the custom Gson configuration.
@@ -41,7 +49,7 @@ class JobPortalRepository {
         }
     }
 
-    suspend fun postJob(title: String, description: String, postedBy: String): JobPostingResponse? = withContext(Dispatchers.IO) {
+    suspend fun postJob(title: String, description: String, company: String, postedBy: String): JobPostingResponse? = withContext(Dispatchers.IO) {
         val discussionLink = createFlarumDiscussion(title, description)
         val postedAt = getCurrentTimestamp()
         if (discussionLink == null) {
@@ -50,8 +58,10 @@ class JobPortalRepository {
         val request = JobPostingRequest(
             title = title,
             description = description,
+            company = company,
             postedBy = postedBy,
             postedAt = postedAt,
+            status = false, // Default is false until admin verifies
             discussionLink = discussionLink
         )
         val response = service.postJob(request)
@@ -283,6 +293,20 @@ class JobPortalRepository {
                 Log.e("Flarum", "Discussion creation failed: code=${r.code}, body=${r.body?.string()}")
                 null
             }
+        }
+    }
+
+    suspend fun updateJob(jobId: String, updateData: Map<String, Any>): JobPostingResponse? = withContext(Dispatchers.IO) {
+        // Convert Map to JobUpdateRequest
+        val request = JobUpdateRequest(
+            status = updateData["status"] as? Boolean
+        )
+        val response = service.updateJob(jobId, request)
+        return@withContext if (response.isSuccessful) {
+            response.body()
+        } else {
+            Log.e("JobPortalRepository", "updateJob failed: code=${response.code()}, body=${response.errorBody()?.string()}")
+            null
         }
     }
 }

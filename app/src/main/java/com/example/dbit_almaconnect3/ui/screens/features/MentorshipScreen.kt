@@ -23,12 +23,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.dbit_almaconnect3.data.repository.FlarumTagRepository
 import com.example.dbit_almaconnect3.data.repository.Tag
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 // Helper extension to convert Color to hex.
 fun Color.toHex(): String {
@@ -244,4 +247,265 @@ fun StudentMentorshipScreen(email: String, navController: NavController) {
 @Composable
 fun AlumniMentorshipScreen(email: String, navController: NavController) {
     MentorshipScreen(email, navController)
+}
+
+@Composable
+fun CollegeAdminMentorshipScreen(email: String, navController: NavController) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val flarumTagRepository = remember { FlarumTagRepository() }
+    
+    // Separate lists for official and regular programs
+    var officialPrograms by remember { mutableStateOf<List<Tag>>(emptyList()) }
+    var regularPrograms by remember { mutableStateOf<List<Tag>>(emptyList()) }
+    
+    var newProgramName by remember { mutableStateOf("") }
+    var selectedColor by remember { mutableStateOf(Color(0xFF005B4F)) } // College theme color
+    var showCreateDialog by remember { mutableStateOf(false) }
+    
+    // Define primary and additional colors for the program themes
+    val primaryColors = listOf(
+        Color(0xFF005B4F), // College theme color
+        Color(0xFF2E7D32), // Green
+        Color(0xFF1565C0), // Blue
+        Color(0xFF6A1B9A), // Purple
+        Color(0xFFC62828), // Red
+        Color(0xFFFF8F00)  // Orange
+    )
+    
+    // Fetch all tags when the screen loads.
+    LaunchedEffect(Unit) {
+        flarumTagRepository.getTags()?.let { allTags ->
+            // Filter to only show tags under the primary mentorship tag.
+            val primaryId = flarumTagRepository.getPrimaryMentorshipTagId()
+            if (primaryId != null) {
+                val allPrograms = allTags.filter { it.parentId == primaryId }
+                // Separate into official and regular programs
+                officialPrograms = allPrograms.filter { it.name.startsWith("[OFFICIAL]") }
+                regularPrograms = allPrograms.filter { !it.name.startsWith("[OFFICIAL]") }
+            }
+        }
+    }
+    
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        Text(
+            text = "Mentorship Programs",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+        
+        Text(
+            text = "View and manage mentorship programs at the college",
+            fontSize = 16.sp,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+        
+        // Create New Program button
+        Button(
+            onClick = { showCreateDialog = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+        ) {
+            Text("Create New Official Program")
+        }
+        
+        // Official Programs Card
+        Card(
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "Official Mentorship Programs",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                
+                if (officialPrograms.isEmpty()) {
+                    Text(
+                        text = "No official programs found. Create your first official program!",
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                    ) {
+                        items(officialPrograms) { program ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                TagItem(tag = program) {
+                                    val tagUrl = "http://129.154.249.30:8080/t/${program.slug}"
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(tagUrl))
+                                    context.startActivity(intent)
+                                }
+                                
+                                Text(
+                                    text = "COLLEGE OFFICIAL PROGRAM",
+                                    color = Color.Blue,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(start = 8.dp, top = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Regular Programs Card
+        Card(
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "Other Mentorship Programs",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                
+                if (regularPrograms.isEmpty()) {
+                    Text(
+                        text = "No other mentorship programs found.",
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                    ) {
+                        items(regularPrograms) { program ->
+                            TagItem(tag = program) {
+                                val tagUrl = "http://129.154.249.30:8080/t/${program.slug}"
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(tagUrl))
+                                context.startActivity(intent)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Dialog to create a new program
+    if (showCreateDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showCreateDialog = false },
+            title = { Text("Create New Official Mentorship Program") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = newProgramName,
+                        onValueChange = { newProgramName = it },
+                        label = { Text("Program Topic/Name") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text("Select Program Theme Color:")
+                    
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                    ) {
+                        items(primaryColors) { color ->
+                            ColorSwatch(
+                                color = color, 
+                                selected = color == selectedColor,
+                                onClick = { selectedColor = color }
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newProgramName.isNotEmpty()) {
+                            coroutineScope.launch {
+                                // Add [OFFICIAL] prefix to program name
+                                val officialProgramName = "[OFFICIAL] $newProgramName"
+                                val parentId = flarumTagRepository.getPrimaryMentorshipTagId()
+                                val newTag = flarumTagRepository.createTag(
+                                    officialProgramName, 
+                                    selectedColor.toHex(), 
+                                    parentId
+                                )
+                                
+                                if (newTag != null) {
+                                    Toast.makeText(
+                                        context, 
+                                        "Official Program '${newTag.name}' created", 
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    
+                                    // Refresh the tag list
+                                    flarumTagRepository.getTags()?.let { allTags ->
+                                        val primaryId = flarumTagRepository.getPrimaryMentorshipTagId()
+                                        if (primaryId != null) {
+                                            val allPrograms = allTags.filter { it.parentId == primaryId }
+                                            // Separate into official and regular programs
+                                            officialPrograms = allPrograms.filter { it.name.startsWith("[OFFICIAL]") }
+                                            regularPrograms = allPrograms.filter { !it.name.startsWith("[OFFICIAL]") }
+                                        }
+                                    }
+                                    
+                                    // Reset fields
+                                    newProgramName = ""
+                                    showCreateDialog = false
+                                } else {
+                                    Toast.makeText(
+                                        context, 
+                                        "Failed to create program", 
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        } else {
+                            Toast.makeText(
+                                context, 
+                                "Program name cannot be empty", 
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                ) {
+                    Text("Create Program")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showCreateDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }

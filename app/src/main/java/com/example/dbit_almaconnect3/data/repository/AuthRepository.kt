@@ -1,5 +1,6 @@
 package com.example.dbit_almaconnect3.data.repository
 
+import android.content.Context
 import android.util.Log
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -8,6 +9,7 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
+import com.example.dbit_almaconnect3.App
 
 class AuthRepository {
 
@@ -142,9 +144,19 @@ class AuthRepository {
                     val jsonResponse = JSONObject(responseBodyString ?: "")
                     val token = jsonResponse.optString("token")
                     // Extract role from the PocketBase record.
-                    val role = jsonResponse.getJSONObject("record").optString("role")
+                    val recordObj = jsonResponse.getJSONObject("record")
+                    val role = recordObj.optString("role")
+                    val userId = recordObj.optString("id", "")
+                    val username = recordObj.optString("username", email.substringBefore("@"))
 
                     if (token.isNotEmpty()) {
+                        // Save authentication details to SharedPreferences
+                        saveAuthDetails(email, token, role, username, userId)
+                        
+                        // Log authentication success
+                        Log.d("AuthRepository", "Login successful for $email with role $role")
+                        Log.d("AuthRepository", "Saved auth token: ${token.take(10)}...")
+                        
                         // Pass the role from PocketBase into loginFlarum
                         loginFlarum(email, password, role, onSuccess, onError)
                     } else {
@@ -155,6 +167,48 @@ class AuthRepository {
                 }
             }
         })
+    }
+
+    // Save authentication details to SharedPreferences
+    private fun saveAuthDetails(email: String, token: String, role: String, name: String, userId: String) {
+        try {
+            val sharedPrefs = App.instance.getSharedPreferences("auth", Context.MODE_PRIVATE)
+            val editor = sharedPrefs.edit()
+            
+            // Save all relevant user information
+            editor.putString("email", email)
+            editor.putString("token", token)
+            editor.putString("role", role)
+            editor.putString("name", name)
+            editor.putString("userId", userId)
+            
+            // Save the edit time for debugging
+            editor.putLong("lastLogin", System.currentTimeMillis())
+            
+            // Commit changes synchronously to ensure they're saved
+            val success = editor.commit()
+            
+            if (success) {
+                Log.d("AuthRepository", "Auth details saved successfully for $email")
+            } else {
+                Log.e("AuthRepository", "Failed to save auth details for $email")
+            }
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "Error saving auth details: ${e.message}")
+        }
+    }
+
+    // Helper method to clear auth details on logout
+    private fun clearAuthDetails() {
+        try {
+            val sharedPrefs = App.instance.getSharedPreferences("auth", Context.MODE_PRIVATE)
+            val editor = sharedPrefs.edit()
+            editor.clear()
+            editor.commit()
+            Log.d("AuthRepository", "Auth details cleared on logout")
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "Error clearing auth details: ${e.message}")
+        }
     }
 
     // Updated Flarum Login function to accept the role from PocketBase.
@@ -241,6 +295,9 @@ class AuthRepository {
         onError: (String) -> Unit
     ) {
         try {
+            // Clear local auth data first
+            clearAuthDetails()
+            
             // PocketBase does not require an explicit logout for token-based systems.
             val flUrl = "$flarumUrl/api/token"
             val flRequest = Request.Builder()
